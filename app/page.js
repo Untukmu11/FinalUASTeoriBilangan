@@ -1,460 +1,394 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, RefreshCw, Calculator, PlayCircle } from 'lucide-react';
 
-const App = () => {
-  useEffect(() => {
-    // Konfigurasi MathJax
-    window.MathJax = {
-      tex: {
-        inlineMath: [['$', '$'], ['\\(', '\\)']],
-        displayMath: [['$$', '$$'], ['\\[', '\\]']],
-      },
-      svg: {
-        fontCache: 'global'
-      },
-      startup: {
-        typeset: false // Kita akan memanggil typeset secara manual setelah load
-      }
-    };
+export default function App() {
+  // State untuk input teks
+  const [inputText, setInputText] = useState("AKU SUKA TIDUR");
+  // State untuk animasi pencarian invers
+  const [showInverseSteps, setShowInverseSteps] = useState(false);
+  const [highlightRow, setHighlightRow] = useState(null);
 
-    // Fungsi untuk memuat script MathJax
-    const loadMathJax = () => {
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
-      script.async = true;
-      script.onload = () => {
-        if (window.MathJax && window.MathJax.typesetPromise) {
-          window.MathJax.typesetPromise();
-        }
+  // --- LOGIC AREA ---
+
+  // 1. Fungsi Mapping Huruf ke Angka (Custom: A=21, F=0)
+  // Logic: Standard ASCII A=0, F=5. Kita geser -5.
+  // Rumus: (ASCII - 65 - 5) mod 26
+  const getCustomValue = (char) => {
+    const code = char.toUpperCase().charCodeAt(0);
+    if (code < 65 || code > 90) return null; // Bukan huruf
+    let val = (code - 65 - 5) % 26;
+    if (val < 0) val += 26;
+    return val;
+  };
+
+  // 2. Fungsi Mapping Angka ke Huruf
+  const getCharFromValue = (val) => {
+    let code = (val + 5) % 26;
+    return String.fromCharCode(code + 65);
+  };
+
+  // 3. Proses Enkripsi Text
+  const encryptText = (text) => {
+    return text.split('').map((char, index) => {
+      const pVal = getCustomValue(char);
+      if (pVal === null) return { char, isSpace: true };
+      
+      const raw = 11 * pVal + 10;
+      const cVal = raw % 26;
+      const cChar = getCharFromValue(cVal);
+      
+      return {
+        original: char.toUpperCase(),
+        pVal,
+        calc: `11(${pVal}) + 10 = ${raw}`,
+        mod: `${raw} mod 26 = ${cVal}`,
+        cVal,
+        result: cChar,
+        isSpace: false
       };
-      document.head.appendChild(script);
-    };
+    });
+  };
 
-    // Cek jika MathJax sudah ada, jika belum load scriptnya
-    if (!window.MathJax || !window.MathJax.typesetPromise) {
-      loadMathJax();
-    } else {
-      window.MathJax.typesetPromise();
+  // 4. Proses Dekripsi Text
+  // Rumus: P = 19(C - 10) mod 26
+  const decryptText = (cipherData) => {
+    return cipherData.map((item) => {
+      if (item.isSpace) return item;
+
+      const cVal = item.cVal;
+      const step1 = cVal - 10;
+      // Handle negative modulo correctly in JS
+      let step1Mod = step1 % 26;
+      if (step1Mod < 0) step1Mod += 26;
+
+      const raw = 19 * step1Mod;
+      const pVal = raw % 26;
+      const pChar = getCharFromValue(pVal);
+
+      return {
+        ...item,
+        decStep1: `${cVal} - 10 = ${step1} ≡ ${step1Mod}`,
+        decStep2: `19(${step1Mod}) = ${raw}`,
+        decRes: `${raw} mod 26 = ${pVal}`,
+        finalChar: pChar
+      };
+    });
+  };
+
+  const encryptedData = encryptText(inputText);
+  const decryptedData = decryptText(encryptedData);
+  
+  // Mengambil string hasil akhir
+  const finalCipherString = encryptedData.map(d => d.isSpace ? ' ' : d.result).join('');
+  const finalDecryptedString = decryptedData.map(d => d.isSpace ? ' ' : d.finalChar).join('');
+
+  // Simulasi Invers Loop
+  const runInverseSimulation = () => {
+    setShowInverseSteps(true);
+    let i = 1;
+    const interval = setInterval(() => {
+      setHighlightRow(i);
+      if (i >= 19) clearInterval(interval);
+      i++;
+    }, 150); // Kecepatan animasi
+  };
+
+  // Gunakan useEffect untuk membersihkan interval jika komponen unmount
+  useEffect(() => {
+    return () => {
+        // Cleanup function (optional but good practice)
     }
   }, []);
 
   return (
-    <div className="app-container">
-      {/* CSS Internal */}
-      <style>{`
-        :root {
-          --color-primary: #007bff;
-          --color-secondary: #495057;
-          --color-light: #f8f9fa;
-          --color-text: #212529;
-          --color-accent: #17a2b8;
-          --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        body {
-          font-family: var(--font-main);
-          line-height: 1.7;
-          color: var(--color-text);
-          background-color: var(--color-light);
-          margin: 0;
-          padding: 0;
-        }
-
-        .container {
-          max-width: 900px;
-          margin: 20px auto;
-          background-color: white;
-          padding: 40px;
-          border-radius: 8px;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        h1 {
-          text-align: center;
-          color: var(--color-primary);
-          margin-bottom: 30px;
-          font-size: 2.2em;
-        }
-
-        h2 {
-          color: var(--color-primary);
-          margin-top: 30px;
-          margin-bottom: 15px;
-          border-bottom: 2px solid var(--color-accent);
-          padding-bottom: 5px;
-          font-size: 1.6em;
-        }
-
-        h3 {
-          color: var(--color-secondary);
-          margin-top: 20px;
-          margin-bottom: 10px;
-          font-size: 1.3em;
-        }
-
-        h4 {
-          color: var(--color-accent);
-          margin-top: 15px;
-          margin-bottom: 8px;
-          font-size: 1.1em;
-          font-weight: 600;
-        }
-
-        p, ul, ol, table {
-          margin-bottom: 15px;
-          text-align: justify;
-        }
-
-        ul, ol {
-          padding-left: 30px;
-        }
-
-        ul li {
-          list-style: disc;
-          margin-bottom: 5px;
-        }
+    <div className="min-h-screen text-white font-inter relative bg-slate-900">
+      {/* Styles Injection */}
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');
         
-        ol li {
-          list-style: decimal;
-          margin-bottom: 5px;
+        .font-inter { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        .bg-gradient-custom {
+          background-image: linear-gradient(to bottom right, #0F172A, #172554, #312E81);
         }
 
-        /* --- Rumus Formatting --- */
-        .formula-block {
-          margin: 20px 0 !important;
-          padding: 15px;
-          background-color: #e6f7ff; 
-          border: 1px dashed var(--color-accent);
-          border-radius: 4px;
+        .content-card {
+          background-color: rgba(30, 41, 59, 0.6);
+          backdrop-filter: blur(12px);
+          border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+
+        .input-glow:focus {
+          box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+          border-color: #60A5FA;
+        }
+
+        /* Table Styling */
+        .table-container {
           overflow-x: auto;
-          text-align: center;
-          font-size: 1.1em;
+          border-radius: 8px;
+          border: 1px solid rgba(255,255,255,0.1);
         }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: rgba(15, 23, 42, 0.8); color: #93C5FD; padding: 12px; text-align: left; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; }
+        tr:hover td { background-color: rgba(255,255,255,0.05); }
         
-        /* --- Tabel Styling --- */
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-top: 20px;
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
         }
-        table th, table td {
-          border: 1px solid #ddd;
-          padding: 10px;
-          text-align: center;
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(0,0,0,0.2);
         }
-        table th {
-          background-color: var(--color-primary);
-          color: white;
-          font-weight: 600;
-        }
-        table tr:nth-child(even) {
-          background-color: #f2f2f2;
-        }
-        
-        .catatan {
-          background-color: #fff3cd;
-          border-left: 5px solid #ffc107;
-          padding: 15px;
-          margin-top: 20px;
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.2);
           border-radius: 4px;
         }
-
-        /* Responsif untuk Mobile */
-        @media (max-width: 600px) {
-          .container {
-            padding: 20px;
-            margin: 10px;
-          }
-          h1 { font-size: 1.8em; }
-          h2 { font-size: 1.4em; }
-          table { font-size: 0.9em; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255,255,255,0.3);
         }
       `}</style>
 
-      <div className="container">
-        <h1>Inti Materi: Caesar Cipher dan Modular Aritmetik</h1>
+      <div className="bg-gradient-custom min-h-screen pb-20">
         
-        {/* ===================================== */}
-        {/* 1. PENDAHULUAN */}
-        {/* ===================================== */}
-        <section id="pendahuluan">
-          <h2>Pendahuluan</h2>
-          <p>
-            Dalam berkomunikasi, sering kali ada pesan yang tidak boleh dibaca oleh sembarang orang, 
-            apalagi jika pesan tersebut harus melewati banyak tangan sebelum sampai kepada penerima. 
-            Bayangkan seseorang ingin mengirimkan teks penting, tetapi ia tahu bahwa pengantar pesan, 
-            kurir, atau siapa pun yang membawanya bisa saja membuka dan membaca isi pesan tersebut. 
-            Oleh karena itu, untuk menjaga kerahasiaannya, pengirim membutuhkan cara agar tulisannya 
-            tampak biasa saja bagi orang lain, namun tetap dapat dipahami oleh penerima yang tepat.
-          </p>
-          <p>
-            Dalam kasus-kasus seperti inilah teknik <em>Caesar Cipher</em> digunakan. Dengan teknik sederhana ini, 
-            pengirim menggeser setiap huruf dalam pesannya beberapa langkah di sepanjang alfabet, sehingga 
-            teks berubah menjadi rangkaian huruf baru yang tampak acak. Orang lain yang melihatnya tidak 
-            akan memahami maknanya, tetapi penerima yang mengetahui kunci pergeseran ini dapat dengan mudah 
-            mengubah teks kembali menjadi pesan asli. Teknik inilah yang membuat pesan aman meskipun harus 
-            melewati banyak tangan.
-          </p>
-                    <p>
-            Untuk dapat memahami cara kerja Caesar Cipher secara lebih mendalam, kita perlu mempelajari 
-            beberapa konsep penting. Konsep-konsep tersebut yaitu, kongruensi modular, langkah enkripsi, 
-            langkah dekripsi, dan modifikasi algoritma Caesar Chiper.
-          </p>
-        </section>
-
-        {/* ===================================== */}
-        {/* 2. KONGRUENSI MODULAR */}
-        {/* ===================================== */}
-        <section id="modular">
-          <h2>Pemahaman Kongruensi Modular</h2>
-          
-          <h3>Definisi Kongruensi Modular</h3>
-          <p>
-            Jika {'$a, b \\in \\mathbb{Z}$'} dan {'$n \\in \\mathbb{Z}^+$'}, maka $a$ dikatakan kongruen dengan $b$ modulo $n$, 
-            ditulis {'$a \\equiv b \\pmod{n}$'}, apabila $n$ membagi $a-b$ (Burton, 2011).
-          </p>
-          <p>Secara formal, kongruensi antara bilangan bulat dinyatakan sebagai:</p>
-          <div className="formula-block">
-            {'$$a \\equiv b \\pmod{n} \\iff n \\mid (a-b)$$'}
+        {/* Navbar */}
+        <header className="bg-slate-900/80 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
+          <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
+              Kelompok 2: Modifikasi Cipher
+            </h1>
+            <button className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition cursor-pointer">
+              <ArrowLeft className="w-4 h-4" /> Kembali
+            </button>
           </div>
-          <p>Artinya:</p>
-          <ul>
-            <li>$a$ dan $b$ memiliki sisa yang sama ketika dibagi $n$.</li>
-            <li>$a-b$ habis dibagi $n$.</li>
-          </ul>
-                    
-          <h3>Teorema</h3>
-          <p>
-            Jika $a$ dan $b$ adalah bilangan bulat, maka kita mengatakan bahwa {'$a \\equiv b \\pmod{n}$'} jika dan hanya jika, 
-            terdapat suatu bilangan bulat $k$ sehingga berlaku persamaan $a = b + kn$ (Nurhadiani et al., 2018).
-          </p>
-          <div className="catatan">
-            Teorema di atas berarti selisih $a-b$ merupakan kelipatan dari $n$. Jika {'$a \\equiv b \\pmod{n}$'}, 
-            maka $n$ membagi selisih $a-b$, sehingga terdapat bilangan bulat $k$ dengan $a-b=kn$ dan persamaan 
-            ini dapat ditulis menjadi $a=b+kn$. Dengan kata lain, kongruensi modular menunjukan bahwa dua bilangan 
-            memiliki sisa yang sama jika dibagi dengan $n$.
+        </header>
+
+        <main className="container mx-auto px-4 py-8 max-w-5xl">
+          
+          {/* Header Title */}
+          <div className="text-center mb-10">
+            <h2 className="text-3xl md:text-5xl font-extrabold mb-4 tracking-tight">Interactive Caesar Lab</h2>
+            <div className="inline-block px-4 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-sm font-mono">
+              Fungsi: C = (11P + 10) mod 26
+            </div>
           </div>
-          
-          <h3>Sifat-Sifat Kongruensi</h3>
-          <ol>
-            <li>
-              <strong>Refleksif:</strong> Jika $a$ suatu bilangan bulat, maka {'$a \\equiv a \\pmod{n}$'}. (Bukti: $n \mid (a-a)=0$).
-            </li>
-            <li>
-              <strong>Simetris:</strong> Jika {'$a \\equiv b \\pmod{n}$'}, maka {'$b \\equiv a \\pmod{n}$'}. (Bukti: Jika {'$a \\equiv b \\pmod{n}$'}, maka $a-b=kn$, sehingga $b-a=(-k)n$, yang berarti $n \mid (b-a)$).
-            </li>
-            <li>
-              <strong>Transitif:</strong> Jika terdapat {'$a \\equiv b \\pmod{n}$'} dan {'$b \\equiv c \\pmod{n}$'}, maka {'$a \\equiv c \\pmod{n}$'}. (Bukti: $a-b=kn$ dan $b-c=ln$. $(a-b)+(b-c)=n(k+l)$, sehingga $a-c=n(k+l)$, yang berarti {'$a \\equiv c \\pmod{n}$'}).
-            </li>
-          </ol>
 
-          <h3>Pentingnya Kongruensi Modular dalam Caesar Cipher</h3>
-          <p>
-            Caesar Cipher bekerja dengan menggeser huruf alfabet menggunakan bilangan bulat dan karena hanya ada 26 huruf, 
-            maka semua operasi dilakukan dengan <em>modulo 26</em>. Tanpa modulus, pergeseran huruf bisa keluar dari rentang $0-25$. Modular bertugas untuk mengembalikan hasil ke rentang alfabet A-Z.
-          </p>
-          <h4>Contoh Peran Modular</h4>
-          <p>
-            Huruf Z = 25. Jika digeser $k=3$ langkah, hasilnya $25+3=28$. Dengan menggunakan modular:
-          </p>
-          <div className="formula-block">
-             {'$$28 \\pmod{26} = 2 \\quad (\\text{yaitu huruf C})$$'}
+          {/* SECTION 1: ENKRIPSI INTERAKTIF */}
+          <div className="content-card rounded-2xl p-6 md:p-8 mb-8 shadow-2xl ring-1 ring-white/10">
+            <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+              <h3 className="text-2xl font-bold text-green-400 flex items-center gap-2">
+                1. ENKRIPSI
+              </h3>
+              <button 
+                onClick={() => setInputText("AKU SUKA TIDUR")}
+                className="text-xs text-gray-400 hover:text-white underline flex items-center gap-1"
+              >
+                <RefreshCw className="w-3 h-3" /> Reset Contoh
+              </button>
+            </div>
+
+            {/* Input Box */}
+            <div className="mb-8">
+              <label className="block text-gray-400 text-sm mb-2">Masukkan Plaintext (Silakan ketik di sini):</label>
+              <input 
+                type="text" 
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-5 py-4 text-xl md:text-2xl text-green-400 font-mono focus:outline-none input-glow transition-all placeholder-gray-600"
+                placeholder="Ketik pesan rahasia..."
+              />
+            </div>
+
+            {/* Live Result Preview */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div className="bg-slate-800/50 p-4 rounded-lg border border-white/5">
+                <p className="text-xs text-gray-500 uppercase mb-1">Plaintext (P)</p>
+                <p className="font-mono text-lg text-gray-300 break-all">{inputText.toUpperCase() || "..."}</p>
+              </div>
+              <div className="bg-green-900/20 p-4 rounded-lg border border-green-500/30">
+                <p className="text-xs text-green-500 uppercase mb-1">Ciphertext (C)</p>
+                <p className="font-mono text-lg text-green-400 break-all">{finalCipherString || "..."}</p>
+              </div>
+            </div>
+
+            {/* Detailed Table */}
+            <h4 className="text-lg font-semibold text-white mb-4">Rincian Perhitungan Baris per Baris</h4>
+            <div className="table-container max-h-[400px] overflow-y-auto custom-scrollbar">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Huruf</th>
+                    <th>Nilai P (Custom)</th>
+                    <th>Rumus (11P + 10)</th>
+                    <th>Mod 26</th>
+                    <th>Hasil (C)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {encryptedData.map((item, idx) => (
+                    !item.isSpace ? (
+                      <tr key={idx}>
+                        <td className="text-white font-bold">{item.original}</td>
+                        <td className="text-blue-300">{item.pVal}</td>
+                        <td className="text-gray-400">{item.calc}</td>
+                        <td className="text-yellow-200">{item.mod}</td>
+                        <td className="text-green-400 font-bold text-lg">{item.result}</td>
+                      </tr>
+                    ) : (
+                      <tr key={idx} className="bg-slate-800/30">
+                        <td colSpan="5" className="text-center text-gray-600 italic text-xs py-2">
+                          (Spasi diabaikan)
+                        </td>
+                      </tr>
+                    )
+                  ))}
+                  {inputText.length === 0 && (
+                    <tr><td colSpan="5" className="text-center text-gray-500 py-8">Ketik sesuatu di atas untuk melihat tabel.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-          <p>
-            Inilah fungsi utama kongruensi modular dalam Caesar Cipher, yaitu untuk menjamin pergeseran huruf tetap berada dalam alfabet.
-          </p>
-        </section>
 
-        {/* ===================================== */}
-        {/* 3. ENKRIPSI */}
-        {/* ===================================== */}
-        <section id="enkripsi">
-          <h2>Langkah Enkripsi </h2>
-          <p>
-            Enkripsi adalah proses mengubah pesan asli (plaintext) menjadi bentuk yang tidak dapat dibaca (ciphertext) 
-            dengan menggunakan aturan atau kunci tertentu. Dalam Caesar Cipher, enkripsi dilakukan dengan menggeser 
-            setiap huruf plaintext sejumlah $k$ posisi pada alfabet.
-          </p>
 
-          <h3>Rumus Enkripsi</h3>
-          <p>Secara matematis, rumus enkripsi dirumuskan sebagai:</p>
-          <div className="formula-block">
-            {'$$C \\equiv P + k \\pmod{26}$$'}
+          {/* SECTION 2: MENCARI INVERS (REQUESTED FEATURE) */}
+          <div className="content-card rounded-2xl p-6 md:p-8 mb-8 shadow-2xl ring-1 ring-white/10">
+            <h3 className="text-2xl font-bold text-yellow-400 mb-6 border-b border-white/10 pb-4 flex items-center gap-2">
+              <Calculator className="w-6 h-6" /> CARA MENCARI INVERS
+            </h3>
+            
+            <div className="grid md:grid-cols-2 gap-8">
+              <div>
+                <p className="text-gray-300 mb-4 leading-relaxed">
+                  Untuk melakukan dekripsi, kita membutuhkan invers dari <strong>11</strong> dalam modulo 26.
+                  <br/>
+                  Artinya, kita mencari angka <strong>x</strong> dimana:
+                </p>
+                <div className="bg-slate-800 p-4 rounded-lg text-center font-mono text-xl border border-yellow-500/30 mb-6">
+                  11 &middot; x &equiv; 1 (mod 26)
+                </div>
+                <p className="text-sm text-gray-400 mb-4">
+                  Kita bisa mencarinya dengan algoritma Euclidean, atau karena modulo 26 kecil, kita bisa coba satu per satu (Brute Force) dengan simulasi di bawah ini.
+                </p>
+                
+                {!showInverseSteps ? (
+                  <button 
+                    onClick={runInverseSimulation}
+                    className="w-full py-3 bg-yellow-600 hover:bg-yellow-500 text-white font-bold rounded-lg transition flex items-center justify-center gap-2 shadow-lg"
+                  >
+                    <PlayCircle className="w-5 h-5" /> Mulai Simulasi Pencarian
+                  </button>
+                ) : (
+                   <button 
+                    onClick={() => {setShowInverseSteps(false); setHighlightRow(null);}}
+                    className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition text-sm"
+                  >
+                    Reset Simulasi
+                  </button>
+                )}
+              </div>
+
+              {/* Simulation Box */}
+              <div className="bg-slate-900/80 rounded-lg border border-white/10 p-0 overflow-hidden flex flex-col h-[300px]">
+                <div className="bg-slate-800 px-4 py-2 border-b border-white/10 flex justify-between">
+                  <span className="text-xs font-bold text-gray-400 uppercase">Log Perhitungan</span>
+                  <span className="text-xs text-gray-500">Mencari sisa bagi 1...</span>
+                </div>
+                <div className="overflow-y-auto p-4 custom-scrollbar font-mono text-sm space-y-1 flex-1">
+                  {showInverseSteps ? (
+                    Array.from({length: 20}, (_, i) => i + 1).map(x => {
+                      const res = (11 * x) % 26;
+                      const isFound = res === 1;
+                      // Logic highlight animasi
+                      const isCurrent = highlightRow === x;
+                      const isPast = highlightRow > x;
+                      
+                      if (!isPast && !isCurrent && highlightRow !== null) return null; // Belum muncul
+
+                      return (
+                        <div 
+                          key={x} 
+                          className={`flex justify-between p-2 rounded ${
+                            isFound ? 'bg-green-500/20 border border-green-500 text-green-300 font-bold' : 
+                            isCurrent ? 'bg-yellow-500/20 border-l-2 border-yellow-500' : 'text-gray-500'
+                          }`}
+                        >
+                          <span>11 &times; {x} = {11*x}</span>
+                          <span>mod 26 = {res} {isFound ? '✅' : ''}</span>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-600 italic text-center px-6">
+                      Klik "Mulai Simulasi" untuk melihat komputer mencari nilai invers satu per satu.
+                    </div>
+                  )}
+                  {highlightRow >= 19 && (
+                    <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded text-blue-200 text-center text-xs">
+                      Ditemukan! Invers dari 11 adalah <strong>19</strong>.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-          <ul>
-            <li>$P$: Posisi huruf plaintext</li>
-            <li>$k$: Kunci (jumlah pergeseran)</li>
-            <li>$C$: Posisi huruf ciphertext</li>
-          </ul>
 
-          <h3>Tahapan Proses Enkripsi</h3>
-          <ol>
-            <li>
-              <strong>Konversi Huruf ke Angka:</strong> Ubah setiap huruf dalam plaintext menjadi nilai numerik sesuai posisi alfabet ($A=0, \dots, Z=25$).
-            </li>
-            <li>
-              <strong>Tentukan Kunci ($k$):</strong> Pilih nilai kunci $k$, yaitu banyaknya posisi alfabet yang akan digeser (contohnya $k=3$).
-            </li>
-            <li>
-              <strong>Lakukan Operasi Enkripsi:</strong> Hitung {'$C = (P + k) \\pmod{26}$'}. Langkah ini menjaga agar hasil penjumlahan tetap dalam rentang $0-25$ dengan melakukan operasi modulus 26.
-            </li>
-            <li>
-              <strong>Konversi Angka Kembali ke Huruf:</strong> Ubah hasil angka setelah {'$\\pmod{26}$'} menjadi huruf kembali ($0=A, \dots, 25=Z$). Huruf inilah yang menjadi huruf sandi (ciphertext).
-            </li>
-            <li>
-              <strong>Ulangi untuk Semua Huruf:</strong> Terapkan proses yang sama untuk setiap huruf dalam plaintext sehingga seluruh pesan menjadi ciphertext.
-            </li>
-          </ol>
-          
-          <h4>Contoh Enkripsi kata “MATH” dengan kunci $k=3$</h4>
-          <table>
-            <thead>
-              <tr>
-                <th>Huruf</th>
-                <th>Angka ($P$)</th>
-                <th>$P+k$ ($k=3$)</th>
-                <th>Mod 26</th>
-                <th>Ciphertext ($C$)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>M</td><td>12</td><td>$12+3=15$</td><td>15</td><td>P</td></tr>
-              <tr><td>A</td><td>0</td><td>$0+3=3$</td><td>3</td><td>D</td></tr>
-              <tr><td>T</td><td>19</td><td>$19+3=22$</td><td>22</td><td>W</td></tr>
-              <tr><td>H</td><td>7</td><td>$7+3=10$</td><td>10</td><td>K</td></tr>
-            </tbody>
-          </table>
-          <p>Setelah proses enkripsi, kata <em>MATH</em> menjadi <em>PDWK</em>.</p>
-        </section>
-
-        {/* ===================================== */}
-        {/* 4. DEKRIPSI */}
-        {/* ===================================== */}
-        <section id="dekripsi">
-          <h2>Langkah Dekripsi </h2>
-          <p>
-            Dekripsi adalah proses untuk mengembalikan pesan yang sudah terenkripsi (ciphertext) kembali menjadi pesan asli (plaintext) yang dapat dibaca. Proses ini merupakan operasi invers, yaitu <em>pengurangan modular</em>.
-          </p>
-
-          <h3>Rumus Dekripsi</h3>
-          <p>Rumus dekripsi dirumuskan sebagai:</p>
-          <div className="formula-block">
-            {'$$P \\equiv C - k \\pmod{26}$$'}
+          {/* SECTION 3: DEKRIPSI OTOMATIS */}
+          <div className="content-card rounded-2xl p-6 md:p-8 shadow-2xl ring-1 ring-white/10">
+            <h3 className="text-2xl font-bold text-teal-400 mb-6 border-b border-white/10 pb-4">
+              3. DEKRIPSI (Pembuktian)
+            </h3>
+            <p className="text-gray-300 mb-4">
+              Menggunakan invers yang ditemukan (19), rumus dekripsinya adalah: <br/>
+              <code className="text-teal-300 font-mono bg-slate-800 px-2 py-1 rounded">P = 19(C - 10) mod 26</code>
+            </p>
+            
+            <div className="table-container max-h-[400px] overflow-y-auto custom-scrollbar">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Cipher (C)</th>
+                    <th>Langkah 1 (C-10)</th>
+                    <th>Kali Invers (x19)</th>
+                    <th>Mod 26</th>
+                    <th>Huruf Asli</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {decryptedData.map((item, idx) => (
+                    !item.isSpace ? (
+                      <tr key={idx}>
+                        <td className="text-green-400 font-bold">{item.original} ({item.cVal})</td>
+                        <td className="text-gray-400">{item.decStep1}</td>
+                        <td className="text-gray-400">{item.decStep2}</td>
+                        <td className="text-yellow-200">{item.decRes}</td>
+                        <td className="text-white font-bold text-lg border-l border-white/10 pl-4">{item.finalChar}</td>
+                      </tr>
+                    ) : null
+                  ))}
+                  {inputText.length === 0 && (
+                      <tr><td colSpan="5" className="text-center text-gray-500 py-8">Menunggu input...</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+             <div className="mt-6 p-4 bg-teal-900/20 border border-teal-500/30 rounded-lg flex justify-between items-center">
+                <span className="text-gray-400 text-sm">Hasil Akhir Dekripsi:</span>
+                <span className="text-xl font-bold text-white tracking-widest">{finalDecryptedString}</span>
+              </div>
           </div>
-          <ul>
-            <li>$P$: Posisi huruf plaintext</li>
-            <li>$C$: Posisi huruf ciphertext</li>
-            <li>$k$: Kunci (jumlah pergeseran)</li>
-          </ul>
 
-          <h3>Langkah-Langkah Proses Dekripsi</h3>
-          <ol>
-            <li>
-              <strong>Siapkan Ciphertext dan Kunci:</strong> Ambil pesan yang sudah terenkripsi serta nilai kunci $k$ yang sama yang digunakan saat enkripsi.
-            </li>
-            <li>
-              <strong>Konversi Huruf Ciphertext menjadi Angka:</strong> Setiap huruf diubah ke bentuk angka ($A=0, \dots, Z=25$). Contoh: P = 15, D = 3, W = 22, K = 10.
-            </li>
-            <li>
-              <strong>Lakukan Operasi Dekripsi:</strong> Kurangkan angka ciphertext dengan kunci $k$ dan ambil {'$\\pmod{26}$'}. Contoh untuk huruf P: {'$P = (15-3) \\pmod{26} = 12$'}.
-            </li>
-            <li>
-              <strong>Ubah Angka Kembali menjadi Plaintext:</strong> Konversikan angka hasil dekripsi ($0-25$) kembali ke huruf alfabet. Contoh: $12 = M, 0 = A, 19 = T, 7 = H$.
-            </li>
-            <li>
-              <strong>Ulangi untuk Semua Huruf dalam Ciphertext:</strong> Proses dilakukan secara berurutan untuk seluruh huruf dalam ciphertext hingga terbentuk kembali pesan asli (plaintext).
-            </li>
-          </ol>
-          
-          <h4>Contoh Dekripsi kata “PDWK” dengan kunci $k=3$</h4>
-          <table>
-            <thead>
-              <tr>
-                <th>Ciphertext ($C$)</th>
-                <th>Angka ($C$)</th>
-                <th>$C-k$ ($k=3$)</th>
-                <th>Mod 26</th>
-                <th>Plaintext ($P$)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>P</td><td>15</td><td>$15-3=12$</td><td>12</td><td>M</td></tr>
-              <tr><td>D</td><td>3</td><td>$3-3=0$</td><td>0</td><td>A</td></tr>
-              <tr><td>W</td><td>22</td><td>$22-3=19$</td><td>19</td><td>T</td></tr>
-              <tr><td>K</td><td>10</td><td>$10-3=7$</td><td>7</td><td>H</td></tr>
-            </tbody>
-          </table>
-        </section>
+        </main>
 
-        {/* ===================================== */}
-        {/* 5. MODIFIKASI ALGORITMA */}
-        {/* ===================================== */}
-        <section id="modifikasi">
-          <h2>Modifikasi Algoritma</h2>
-          <p>
-            Seluruh modifikasi Caesar Cipher pada dasarnya berangkat dari fakta bahwa Caesar adalah sebuah transformasi linear di ruang modular:
-          </p>
-          <div className="formula-block">
-            {'$$f_k(P)=(P+k) \\pmod{n}$$'}
-          </div>
-          <p>
-            yang merupakan fungsi bijektif pada himpunan {'$\\mathbb{Z}_n$'}. Modifikasi yang dibahas berikut memperbesar atau mengubah struktur aljabar dari fungsi tersebut.
-          </p>
-
-          <h3>Perluasan Modulus (Extended Caesar)</h3>
-          <p>
-            Perubahan pada struktur domain aljabar dari {'$\\mathbb{Z}_{26}$'} menjadi {'$\\mathbb{Z}_n$'} dengan $n &gt; 26$. Perubahan pada $n$ tidak mengubah tipe fungsi, tetapi mengubah ruang aljabarnya.
-          </p>
-          <ul>
-            <li><strong>Rumus:</strong> {'$C \\equiv P+k \\pmod{n}$'}.</li>
-            <li><strong>Implikasi:</strong> Ketika $n$ membesar, jumlah kemungkinan cipher meningkat drastis, dan analisis frekuensi menjadi kurang efektif.</li>
-          </ul>
-          
-          <h3>Multiple Shift (Komposisi Fungsi Linear dalam Modulo)</h3>
-          <p>
-            Multiple shift memperkenalkan komposisi fungsi linear dalam modulo. Jika Caesar adalah satu fungsi $f_k$, maka multiple shift adalah rangkaian fungsi {'$f_{k_1}, f_{k_2}, \\dots, f_{k_n}$'} yang masing-masing merupakan automorfisme translasi di {'$\\mathbb{Z}_{26}$'}.
-          </p>
-          <ul>
-            <li><strong>Implikasi:</strong> Cipher tidak lagi memiliki satu distribusi frekuensi tunggal, dan pola transformasinya lebih kompleks.</li>
-          </ul>
-
-          <h3>Vigenère Cipher (Konsep Periodisitas dalam Transformasi Modular)</h3>
-          <p>
-            Vigenère adalah multiple shift dengan struktur periodik, di mana nilai $k$ berasal dari fungsi periodik {'$K: \\mathbb{N} \\to \\mathbb{Z}_{26}$'} yang didefinisikan oleh keyword.
-          </p>
-          <ul>
-            <li><strong>Implikasi:</strong> Memperkenalkan gagasan fungsi periodik dalam kriptografi; secara matematis, Vigenère adalah Caesar dengan parameter $k$ yang diatur oleh cyclic subgroup.</li>
-          </ul>
-          
-          <h3>Dynamic Shift (Index-Dependent Transformations)</h3>
-          <p>
-            Dynamic shift memperkenalkan ketergantungan indeks ke dalam fungsi Caesar, di mana nilai $k$ bergantung pada posisi $i$ secara linear: $k_i = k_0 + i$. Pendekatan ini disebut progressive substitution.
-          </p>
-          <ul>
-            <li><strong>Implikasi:</strong> Nilai $k$ tumbuh secara deterministik, dan pola frekuensi plaintext mengalami distorsi progresif, membuat struktur ciphertext sangat dinamis.</li>
-          </ul>
-          
-          <h3>Affine Cipher (Transformasi Linear Umum - Automorphism of {'$\\mathbb{Z}_n$'})</h3>
-          <p>
-            Affine Cipher adalah perluasan Caesar menjadi transformasi linear umum di {'$\\mathbb{Z}_{26}$'}: {'$f(P)=(aP+b) \\pmod{26}$'}. Caesar adalah kasus khusus ketika $a=1$.
-          </p>
-          <p>
-            Kahn (1996) menekankan bahwa syarat {'$\\gcd(a, 26)=1$'} menjamin keberadaan invers modulo, menjadikannya <em>bijektif</em>, syarat mendasar agar enkripsi dapat dibalik.
-          </p>
-          <ul>
-            <li><strong>Implikasi:</strong> Cipher menjadi transformasi linear yang lebih kaya strukturnya, dan memperbesar ruang kunci secara signifikan.</li>
-          </ul>
-        </section>
-
-        <footer>
-          <p style={{ textAlign: 'center', padding: '20px', color: 'var(--color-secondary)', fontSize: '0.9em' }}>
-            Dokumentasi Inti Materi Caesar Cipher
-          </p>
+        <footer className="mt-12 text-center text-slate-500 text-sm">
+          <p>© 2024 Portofolio Teori Bilangan - Interactive React App</p>
         </footer>
       </div>
     </div>
   );
-};
-
-export default App;
+}
