@@ -208,7 +208,7 @@ export default function Page() {
       topic: "Analisis Kelebihan",
       description: "Mengapa algoritma klasik tetap relevan? Menganalisis kecepatan komputasi, kemudahan implementasi, dan perannya sebagai alat edukasi.",
       color: "from-orange-500 via-amber-600 to-yellow-600",
-      link: "#",
+      link: "https://rosita-s-lab.github.io/Teori-Bilangan/",
       icon: "φ"
     },
     {
